@@ -17,6 +17,7 @@ $ErrorActionPreference = 'Stop'
 
 $Reg    = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings'
 $Backup = Join-Path $env:LOCALAPPDATA 'SteamSplit-backup.json'
+$IconFile = Join-Path (Split-Path $env:SELF) 'SteamSplit.ico'   # khong co thi dung icon khien cua Windows
 
 Add-Type -TypeDefinition @'
 using System;
@@ -276,8 +277,36 @@ if (-not $first) {
     return
 }
 
+# Loi tat ngoai Desktop
+$lnkPath = Join-Path ([Environment]::GetFolderPath('Desktop')) 'SteamSplit.lnk'
+$noLnk   = Join-Path $env:LOCALAPPDATA 'SteamSplit-noshortcut'
+function New-Shortcut {
+    $l = (New-Object -ComObject WScript.Shell).CreateShortcut($lnkPath)
+    $l.TargetPath = $env:SELF
+    $l.WorkingDirectory = Split-Path $env:SELF
+    if (Test-Path $IconFile) { $l.IconLocation = "$IconFile,0" }
+    else { $l.IconLocation = "$env:SystemRoot\System32\imageres.dll,73" }
+    $l.WindowStyle = 7
+    $l.Description = 'Mo Steam Store/Community khi bi chan'
+    $l.Save()
+    Remove-Item $noLnk -ErrorAction SilentlyContinue
+}
+
+# Lan dau hoi mot lan; neu thu muc bi doi cho thi tu sua lai loi tat
+try {
+    if (Test-Path $lnkPath) {
+        $old = (New-Object -ComObject WScript.Shell).CreateShortcut($lnkPath)
+        if ($old.TargetPath -ne $env:SELF -or ((Test-Path $IconFile) -and $old.IconLocation -ne "$IconFile,0")) { New-Shortcut }
+    } elseif (-not (Test-Path $noLnk)) {
+        $r = [Windows.Forms.MessageBox]::Show("Tao loi tat SteamSplit ngoai Desktop cho de tim?`n(Luc nao cung tao lai duoc: chuot phai icon o khay.)",
+            'SteamSplit', 'YesNo', 'Question')
+        if ($r -eq 'Yes') { New-Shortcut } else { Set-Content $noLnk '' }
+    }
+} catch { }
+
 $tray = New-Object Windows.Forms.NotifyIcon
 $tray.Icon = [Drawing.SystemIcons]::Shield
+try { if (Test-Path $IconFile) { $tray.Icon = New-Object Drawing.Icon($IconFile, [Windows.Forms.SystemInformation]::SmallIconSize) } } catch { }
 $tray.Text = 'SteamSplit: dang kiem tra...'
 $tray.Visible = $true
 $tray.ShowBalloonTip(3000, 'SteamSplit', 'Dang kiem tra ket noi Steam, doi chut...', 'Info')
@@ -321,6 +350,10 @@ try {
             if ($r.Ok) { $tray.ShowBalloonTip(5000, 'Test lai: OK', $r.Text, 'Info') }
             else       { $tray.ShowBalloonTip(5000, 'Test lai: LOI', $r.Text, 'Warning') }
         } catch { }
+    }) | Out-Null
+    $menu.Items.Add('Tao loi tat ngoai Desktop').add_Click({
+        try { New-Shortcut; $tray.ShowBalloonTip(4000, 'SteamSplit', 'Da tao loi tat SteamSplit ngoai Desktop.', 'Info') }
+        catch { $tray.ShowBalloonTip(4000, 'SteamSplit', "Khong tao duoc loi tat: $($_.Exception.Message)", 'Warning') }
     }) | Out-Null
     $menu.Items.Add('Tat va khoi phuc').add_Click({ [Windows.Forms.Application]::Exit() }) | Out-Null
     $tray.ContextMenuStrip = $menu
