@@ -1,14 +1,15 @@
 <# :
 @echo off
-title SteamSplit
 set "SELF=%~f0"
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$s=[IO.File]::ReadAllText($env:SELF); iex $s.Substring($s.IndexOf('#'+'PS'+'#'))"
+rem Chay an qua conhost (Windows Terminal khong an duoc cua so), roi dong cua so nay.
+start "" conhost.exe powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "$s=[IO.File]::ReadAllText($env:SELF); iex $s.Substring($s.IndexOf('#'+'PS'+'#'))"
 exit /b
 #>
 #PS#
 # SteamSplit - mo Steam Store/Community khi bi chan, khong can admin, khong doi DNS/hosts.
 # Cach lam: proxy noi bo (127.0.0.1) chi cho domain Steam; tu phan giai IP qua DoH 1.1.1.1;
 # cat nho goi TLS ClientHello de lach bo loc SNI. Thoat la tra lai cai dat proxy cu.
+# Chay an, chi co icon o khay he thong; chuot phai icon de test lai hoac tat.
 # Khong co tu cap nhat, khong gui du lieu di dau ngoai Steam va 1.1.1.1.
 
 $ErrorActionPreference = 'Stop'
@@ -238,15 +239,24 @@ public class Proxy {
 }
 '@
 
+Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+[Windows.Forms.Application]::EnableVisualStyles()
+
+function Msg([string]$Text, [string]$Icon = 'Information') {
+    [Windows.Forms.MessageBox]::Show($Text, 'SteamSplit', 'OK', $Icon) | Out-Null
+}
+
+# Tra ve @{ Ok = $true/$false; Text = 'tung dong ket qua' }
 function Test-Steam([int]$Port = 0) {
+    $lines = @()
     foreach ($u in 'https://store.steampowered.com/', 'https://steamcommunity.com/') {
         $a = @('-s', '-o', 'NUL', '-w', '%{http_code}', '--max-time', '8')
         if ($Port) { $a += @('--proxy', "http://127.0.0.1:$Port") }
         $code = & curl.exe @a $u
-        if (-not $code -or $code -eq '000') { Write-Host "  [X] $u" -ForegroundColor Red; return $false }
-        Write-Host "  [OK] $u (HTTP $code)" -ForegroundColor Green
+        if (-not $code -or $code -eq '000') { return @{ Ok = $false; Text = (($lines + "[X] $u") -join "`n") } }
+        $lines += "[OK] $u (HTTP $code)"
     }
-    return $true
+    return @{ Ok = $true; Text = ($lines -join "`n") }
 }
 
 function Restore-Proxy {
@@ -256,17 +266,28 @@ function Restore-Proxy {
     else        { Remove-ItemProperty $Reg -Name AutoConfigURL -ErrorAction SilentlyContinue }
     Remove-Item $Backup -Force
     [SteamSplit.Proxy]::RefreshSystemProxy()
-    Write-Host '  Da tra lai cai dat proxy cu.' -ForegroundColor Cyan
 }
+
+# Chi cho chay mot ban: ban thu hai se khoi phuc cai dat trong khi ban dau con dang chay
+$mutex = New-Object Threading.Mutex($false, 'Local\SteamSplit')
+try { $first = $mutex.WaitOne(0) } catch [Threading.AbandonedMutexException] { $first = $true }
+if (-not $first) {
+    Msg 'SteamSplit dang chay roi. Xem icon o khay he thong (goc phai thanh taskbar, co the nam trong mui ten ^).'
+    return
+}
+
+$tray = New-Object Windows.Forms.NotifyIcon
+$tray.Icon = [Drawing.SystemIcons]::Shield
+$tray.Text = 'SteamSplit: dang kiem tra...'
+$tray.Visible = $true
+$tray.ShowBalloonTip(3000, 'SteamSplit', 'Dang kiem tra ket noi Steam, doi chut...', 'Info')
 
 $px = $null
 try {
-    Restore-Proxy   # lan truoc bi tat bang nut X thi don lai truoc
+    Restore-Proxy   # lan truoc bi tat dot ngot thi don lai truoc
 
-    Write-Host "`n  Kiem tra Steam truc tiep..." -ForegroundColor Cyan
-    if (Test-Steam) {
-        Write-Host "`n  Steam vao binh thuong, khong can lam gi." -ForegroundColor Green
-        Read-Host '  Enter de thoat' | Out-Null
+    if ((Test-Steam).Ok) {
+        Msg 'Steam vao binh thuong, khong can bat SteamSplit.'
         return
     }
 
@@ -277,13 +298,11 @@ try {
 
     $ok = $false
     foreach ($m in 1, 2, 3) {
-        Write-Host "`n  Thu kieu cat goi $m qua proxy 127.0.0.1:$($px.Port)..." -ForegroundColor Cyan
         $px.Mode = $m
-        if (Test-Steam $px.Port) { $ok = $true; break }
+        if ((Test-Steam $px.Port).Ok) { $ok = $true; break }
     }
     if (-not $ok) {
-        Write-Host "`n  Khong vuot duoc. Nha mang co the chan theo IP; luc nay can VPN/WARP." -ForegroundColor Red
-        Read-Host '  Enter de thoat' | Out-Null
+        Msg 'Khong vuot duoc. Nha mang co the chan theo IP; luc nay can VPN/WARP.' 'Warning'
         return
     }
 
@@ -292,16 +311,30 @@ try {
     Set-ItemProperty $Reg -Name AutoConfigURL -Value "http://127.0.0.1:$($px.Port)/proxy.pac?$(Get-Random)"
     [SteamSplit.Proxy]::RefreshSystemProxy()
 
-    Write-Host "`n  DANG HOAT DONG (kieu $($px.Mode)). Chi traffic Steam di qua proxy." -ForegroundColor Green
-    Write-Host '  Giu cua so nay mo. Neu web Steam thieu hinh, bam Ctrl+F5.' -ForegroundColor Yellow
-    while ($true) {
-        $k = Read-Host "`n  [T] test lai | Enter = tat va khoi phuc"
-        if ($k -notmatch '^[tT]') { break }
-        Test-Steam $px.Port | Out-Null
-    }
+    $status = "SteamSplit: dang hoat dong (kieu $($px.Mode))"
+    $menu = New-Object Windows.Forms.ContextMenuStrip
+    $menu.Items.Add('Test lai').add_Click({
+        try {
+            $tray.Text = 'SteamSplit: dang test lai...'
+            $r = Test-Steam $px.Port
+            $tray.Text = $status
+            if ($r.Ok) { $tray.ShowBalloonTip(5000, 'Test lai: OK', $r.Text, 'Info') }
+            else       { $tray.ShowBalloonTip(5000, 'Test lai: LOI', $r.Text, 'Warning') }
+        } catch { }
+    }) | Out-Null
+    $menu.Items.Add('Tat va khoi phuc').add_Click({ [Windows.Forms.Application]::Exit() }) | Out-Null
+    $tray.ContextMenuStrip = $menu
+    $tray.Text = $status
+    $tray.ShowBalloonTip(6000, 'SteamSplit dang hoat dong',
+        'Mo Steam nhu binh thuong. Dung xong: chuot phai icon nay > Tat va khoi phuc.', 'Info')
+
+    [Windows.Forms.Application]::Run()
 }
-catch { Write-Host "  Loi: $($_.Exception.Message)" -ForegroundColor Red; Read-Host '  Enter de thoat' | Out-Null }
+catch { Msg "Loi: $($_.Exception.Message)" 'Error' }
 finally {
+    $tray.Visible = $false
+    $tray.Dispose()
     if ($px) { $px.Stop() }
     Restore-Proxy
+    $mutex.ReleaseMutex()
 }

@@ -18,11 +18,12 @@ Không có git: bấm nút **Code**, chọn **Download ZIP**, rồi giải nén 
 
 ## Cách dùng
 
-1. Nhấp đúp vào **`SteamSplit.cmd`**.
-2. Đợi đến khi hiện chữ **DANG HOAT DONG**.
+1. Nhấp đúp vào **`SteamSplit.cmd`**. Một cửa sổ đen lóe lên rồi tự tắt, như vậy là bình thường.
+2. Ở góc phải thanh taskbar xuất hiện icon hình khiên. Đợi vài giây đến khi có thông báo **SteamSplit dang hoat dong**.
 3. Mở Steam hoặc trình duyệt (Edge, Chrome) như bình thường.
-4. **Giữ cửa sổ đó mở** trong suốt lúc dùng.
-5. Dùng xong thì **nhấn Enter** trong cửa sổ để tắt. Cài đặt sẽ được trả lại như cũ.
+4. Dùng xong thì **chuột phải vào icon khiên**, chọn **Tat va khoi phuc**. Cài đặt sẽ được trả lại như cũ.
+
+Nếu không thấy icon, bấm vào mũi tên `^` ở góc phải taskbar, icon có thể đang nằm trong đó.
 
 Nếu web Steam bị thiếu hình, nhấn `Ctrl+F5`.
 
@@ -33,8 +34,11 @@ Muốn tạo lối tắt ngoài màn hình: chuột phải vào `SteamSplit.cmd`
 **Windows hiện cảnh báo "Windows protected your PC"?**
 Lỗi này hay gặp với file tải bằng ZIP. Bấm **More info**, rồi **Run anyway**. Bạn có thể mở file bằng Notepad để tự đọc code trước khi chạy.
 
-**Lỡ đóng cửa sổ bằng nút X?**
-Steam có thể vẫn không vào được. Chỉ cần chạy lại `SteamSplit.cmd`: nó tự trả lại cài đặt cũ trước, rồi bật lại như bình thường.
+**Tắt máy hoặc khởi động lại khi app đang chạy?**
+Không sao. Lần sau chạy lại `SteamSplit.cmd`, nó tự trả lại cài đặt cũ trước rồi mới bật lên.
+
+**Nhấp đúp hai lần?**
+App chỉ chạy một bản. Lần nhấp thứ hai sẽ báo app đang chạy rồi.
 
 **Chạy xong báo "Steam vao binh thuong"?**
 Mạng của bạn không chặn Steam, không cần dùng công cụ này.

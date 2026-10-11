@@ -54,6 +54,21 @@ Tim `http|irm|iwr|iex|Invoke-|Start-Process|Set-ItemProperty|Remove-Item`:
 - `Remove-Item $Backup`: chi xoa file backup cua chinh script.
 - Khong co `irm`, `iwr`, `Invoke-WebRequest`, `Invoke-RestMethod`, `Start-Process`.
 
+## Ban khay he thong (cap nhat sau)
+
+Theo yeu cau nguoi dung, script chuyen sang chay an: `.cmd` mo `conhost.exe powershell -WindowStyle Hidden` roi tu dong, giao dien la icon `NotifyIcon` o khay he thong (menu: Test lai, Tat va khoi phuc). Them mutex `Local\SteamSplit` de chi chay mot ban. Phan C# khong doi.
+
+| Kiem tra | Ket qua |
+|---|---|
+| Phan PowerShell parse khong loi, chi ASCII | DAT |
+| Nhap dup: cua so den tu tat, hien icon va thong bao "dang hoat dong (kieu 1)" | DAT (nguoi dung xac nhan) |
+| Trinh duyet vao Steam | DAT |
+| Nhap dup lan hai: bao "dang chay roi" | DAT |
+| Menu Test lai: thong bao `[OK]` store va community `HTTP 200` | DAT |
+| Menu Tat va khoi phuc: `AutoConfigURL` trong, khong con backup, khong con cong 18080-18090, khong con tien trinh powershell an | DAT |
+
+Ghi chu: thong bao hien ten nguon la "Windows PowerShell"; doi ten nay can dang ky ung dung voi Windows, khong lam de giu mot file.
+
 ## Tong ket
 
 Tat ca cac buoc dat, tru 5.4 (bo qua vi can Admin) va 5.6.5 phan trinh duyet sau khi bam X (gioi han cua mang lam gia DNS, xem ghi chu 2).
